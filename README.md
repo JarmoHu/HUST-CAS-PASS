@@ -194,6 +194,51 @@ client = await login_by_qrcode(username="你的学号")
 - 如果你这边不经常触发双因子认证验证码，可以使用账号密码登录。
 - 如果你这边要求绝对的全自动挂机（哪怕可能的双因子认证也不接收），那么选择二维码登录。配置过程很复杂，但是保证登录可靠性。
 
+## Cloudflare Workers 自动同步源码
+
+如果你已经上传了 `workers.js`，可以使用 GitHub Actions 自动发布到 Cloudflare Workers。
+
+仓库里已提供：
+
+- `wrangler.toml`：Worker 发布配置。
+- `.github/workflows/deploy-worker.yml`：自动发布工作流。
+
+### 1. 修改 wrangler 配置
+
+编辑 `wrangler.toml`：
+
+- `name` 改成你的 Worker 名称。
+- `kv_namespaces.id` 改成你的 KV Namespace ID。
+- `kv_namespaces.preview_id` 改成你的 KV Preview ID。
+
+### 2. 配置 GitHub Secrets
+
+在 GitHub 仓库 Settings -> Secrets and variables -> Actions 中新增：
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+说明：
+
+- `CLOUDFLARE_API_TOKEN` 需要包含 Workers Scripts Edit 和 KV 编辑权限。
+- `CLOUDFLARE_ACCOUNT_ID` 在 Cloudflare Dashboard 可以查看。
+
+### 3. 触发自动同步
+
+推送到 `main` 分支时，只要改动了 `workers.js` 或 `wrangler.toml`，就会自动部署。
+
+也可以在 GitHub Actions 页手动点击 `Deploy Cloudflare Worker` 触发发布。
+
+### 4. 本地手动发布（可选）
+
+如果你想本地先验证，再交给 CI 自动同步：
+
+```bash
+npm install -g wrangler
+wrangler login
+wrangler deploy
+```
+
 ## 许可证
 
 本仓库遵循 `LICENSE` 中的授权条款。
