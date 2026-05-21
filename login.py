@@ -51,9 +51,9 @@ class UaVisitorIdPair:
 # 辅助函数 (Utils)
 # ==========================================
 def _prepare_client(
-    client: Optional[httpx.AsyncClient] = None,
-    extra_headers: Optional[Dict[str, str]] = None,
-    extra_cookies: Optional[Dict[str, str]] = None,
+    client: httpx.AsyncClient | None = None,
+    extra_headers: Dict[str, str] | None = None,
+    extra_cookies: Dict[str, str] | None = None,
 ) -> httpx.AsyncClient:
     """初始化并配置 HTTPX 异步客户端"""
     if client is None:
@@ -123,9 +123,12 @@ async def check_login_status(client: httpx.AsyncClient) -> bool:
 
 async def login_by_qrcode(
     username: str,
-    client: Optional[httpx.AsyncClient] = None,
-    extra_headers: Optional[Dict[str, str]] = None,
-    extra_cookies: Optional[Dict[str, str]] = None,
+    client: httpx.AsyncClient | None = None,
+    extra_headers: Dict[str, str] | None = None,
+    extra_cookies: Dict[str, str] | None = None,
+    need_push: bool | None = True,
+    push_service_url: str | None = None,
+    
 ) -> httpx.AsyncClient:
     """扫码登录流程"""
     client = _prepare_client(client, extra_headers, extra_cookies)
@@ -137,12 +140,14 @@ async def login_by_qrcode(
 
     # 发送推送请求
     response = await client.post(
-        PUSH_SERVICE_URL,
+        push_service_url or PUSH_SERVICE_URL,
         json={"tid": f"hustcas_{username}", "url": link_str},
     )
 
+    
+
     if response.status_code == 200 and response.json().get("status") == "success":
-        logger.info("☁️ 登录链接已发送至云端，等待微信浏览器接管...")
+        logger.info("☁️ 登录链接已发送至云端，等待微信浏览器自动化处理")
     else:
         raise ConnectionError("❌ 登录链接推送失败，请检查网络或联系管理员")
 
@@ -166,10 +171,10 @@ async def login_by_qrcode(
 async def login_by_account(
     username: str,
     password: str,
-    client: Optional[httpx.AsyncClient] = None,
-    extra_headers: Optional[Dict[str, str]] = None,
-    extra_cookies: Optional[Dict[str, str]] = None,
-    ua_visitor_id_pair: Optional[UaVisitorIdPair] = None,
+    client: httpx.AsyncClient | None = None,
+    extra_headers: Dict[str, str] | None = None,
+    extra_cookies: Dict[str, str] | None = None,
+    ua_visitor_id_pair: UaVisitorIdPair | None = None,
 ) -> httpx.AsyncClient:
     """账号密码登录流程"""
     if not username or not password:
