@@ -6,7 +6,7 @@ import uuid
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from html import unescape
-from typing import Optional, Dict
+from typing import Dict
 
 import aioconsole
 import httpx
@@ -26,7 +26,9 @@ PUSH_SERVICE_URL = "https://wechat-push.00660066.xyz/push_url"
 
 MAX_LOGIN_ATTEMPTS = 3
 
-DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+)
 DEFAULT_VISITOR_ID = "e6e94e9680a9382b7c0f96404a5b9022"
 DEFAULT_UA_JSON = (
     '{"ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0",'
@@ -128,7 +130,6 @@ async def login_by_qrcode(
     extra_cookies: Dict[str, str] | None = None,
     need_push: bool | None = True,
     push_service_url: str | None = None,
-    
 ) -> httpx.AsyncClient:
     """扫码登录流程"""
     client = _prepare_client(client, extra_headers, extra_cookies)
@@ -144,10 +145,8 @@ async def login_by_qrcode(
         json={"tid": f"hustcas_{username}", "url": link_str},
     )
 
-    
-
     if response.status_code == 200 and response.json().get("status") == "success":
-        logger.info("☁️ 登录链接已发送至云端，等待微信浏览器自动化处理")
+        logger.info(f"☁️ 登录链接已发送至云端，等待微信浏览器自动化处理，任务id（tid）: hustcas_{username}")
     else:
         raise ConnectionError("❌ 登录链接推送失败，请检查网络或联系管理员")
 
@@ -157,10 +156,12 @@ async def login_by_qrcode(
             r = await client.get(
                 f"https://pass.hust.edu.cn/cas/checkQRCodeScan?random={random.random()}&uuid={uuid_str}"
             )
-            if r.status_code == 200 and "application/json" in r.headers.get("content-type", ""):
+            if r.status_code == 200 and "application/json" in r.headers.get(
+                "content-type", ""
+            ):
                 logger.info("✅ 扫码登录成功")
                 return client
-            
+
             logger.debug("⏳ 扫码登录中 (等待中...)")
         except Exception as e:
             logger.error(f"⚠️ 扫码登录请求异常，2s后重试，错误内容：{e}")
@@ -188,7 +189,7 @@ async def login_by_account(
 
     for attempt in range(1, MAX_LOGIN_ATTEMPTS + 1):
         logger.debug(f"🔄 登录尝试 ({attempt}/{MAX_LOGIN_ATTEMPTS})...")
-        
+
         login_html = await client.get(LOGIN_URL)
         nonce = _extract_hidden_value(login_html.text, "lt")
         execution = _extract_hidden_value(login_html.text, "execution")
@@ -231,15 +232,17 @@ async def login_by_account(
             logger.info("⚠️ 触发企业微信双因子认证")
             phone_code = await aioconsole.ainput("🔑 请输入企业微信验证码: ")
             post_params["phoneCode"] = phone_code.strip()
-            
-            resp = await client.post(LOGIN_URL, data=post_params, follow_redirects=False)
+
+            resp = await client.post(
+                LOGIN_URL, data=post_params, follow_redirects=False
+            )
             if "Location" in resp.headers:
                 logger.info("✅ 双因子认证登录成功")
                 return client
 
         # 提取报错信息以决定下一步
         error_message = _extract_error_message(resp.text)
-        
+
         if "验证码" in error_message and attempt < MAX_LOGIN_ATTEMPTS:
             logger.warning(f"❌ 验证码错误或失效，即将重试 ({error_message})")
             continue
