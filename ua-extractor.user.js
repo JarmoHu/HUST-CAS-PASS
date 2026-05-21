@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         华科CAS系统辅助脚本
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
-// @description  华科CAS统一认证系统数据提取,在网页右下角创建可折叠框，显示并一键复制指定的 UA 和 VisitorID 格式
+// @version      1.1.0
+// @description  华科CAS统一认证系统数据提取,在网页右下角创建可折叠框，显示并一键复制指定的 UA 和 VisitorID 格式（支持动态延迟加载获取）
 // @author       JarmoHu
 // @match        *://pass.hust.edu.cn/*
 // @grant        GM_setClipboard
@@ -13,21 +13,11 @@
 (function () {
   "use strict";
 
-  // 1. 获取网页源码（模拟你后端的提取逻辑）
-  const htmlText = document.documentElement.outerHTML;
+  // 1. 初始化变量
+  let visitorId = "正在获取...";
+  let ua = "正在获取...";
 
-  // 2. 使用正则提取数据（完全匹配你提供的正则规则）
-  const visitorIdMatch = htmlText.match(
-    /<input id="visitorId" type="hidden" name="visitorId" value=["'](.*?)["']>/,
-  );
-  const uaMatch = htmlText.match(
-    /<input id="ua" type="hidden" name="ua" value=["'](.*?)["']>/,
-  );
-
-  const visitorId = visitorIdMatch ? visitorIdMatch[1] : "未找到";
-  const ua = uaMatch ? uaMatch[1] : "未找到";
-
-  // 3. 创建 UI 样式
+  // 2. 创建 UI 样式
   const style = document.createElement("style");
   style.innerHTML = `
         #ua-box-container {
@@ -94,10 +84,20 @@
         #ua-box-copy-btn:hover {
             background: #0077ed;
         }
+        /* 正在获取时的闪烁动画 */
+        .loading-text {
+            animation: pulse 1.5s infinite;
+            color: #ff9500;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     `;
   document.head.appendChild(style);
 
-  // 4. 创建 DOM 结构
+  // 3. 创建 DOM 结构 (为需要更新的元素加上了特定的 ID)
   const container = document.createElement("div");
   container.id = "ua-box-container";
 
@@ -109,18 +109,18 @@
         <div id="ua-box-body">
             <div class="ua-box-item">
                 <div class="ua-box-label">Visitor ID:</div>
-                <div class="ua-box-value">${visitorId}</div>
+                <div class="ua-box-value loading-text" id="display-visitorId">${visitorId}</div>
             </div>
             <div class="ua-box-item">
                 <div class="ua-box-label">User Agent (ua):</div>
-                <div class="ua-box-value">${ua}</div>
+                <div class="ua-box-value loading-text" id="display-ua">${ua}</div>
             </div>
             <button id="ua-box-copy-btn">📋 一键复制 Python 格式</button>
         </div>
     `;
   document.body.appendChild(container);
 
-  // 5. 交互事件：折叠与展开
+  // 4. 交互事件：折叠与展开
   const header = document.getElementById("ua-box-header");
   const body = document.getElementById("ua-box-body");
   const arrow = document.getElementById("ua-box-arrow");
@@ -137,13 +137,17 @@
     }
   });
 
-  // 6. 交互事件：一键复制
+  // 5. 交互事件：一键复制
   const copyBtn = document.getElementById("ua-box-copy-btn");
   copyBtn.addEventListener("click", () => {
+    if (visitorId === "正在获取..." || ua === "正在获取...") {
+        alert("数据尚未获取完毕，请稍后再试！");
+        return;
+    }
+
     // 构建你需要的指定格式
     const formatText = `UaVisitorIdPair(ua="${ua}",visitor="${visitorId}")`;
 
-    // 使用油猴专用的高级剪贴板API（比原生JS更稳定，不容易受安全策略限制）
     GM_setClipboard(formatText);
 
     // 按钮点击反馈效果
@@ -155,4 +159,47 @@
       copyBtn.style.background = "#0071e3";
     }, 1500);
   });
+
+  // 6. 动态监测逻辑 (轮询)
+  let retryCount = 0;
+  const maxRetries = 40; // 最多尝试 40 次 (40 * 250ms = 10秒)
+  
+  const checkDataInterval = setInterval(() => {
+      // 改用 DOM 直接获取 value，比正则更准确地获取 JS 动态赋的值
+      const visitorInput = document.getElementById("visitorId");
+      const uaInput = document.getElementById("ua");
+
+      const currentVisitor = visitorInput ? visitorInput.value : "";
+      const currentUa = uaInput ? uaInput.value : "";
+
+      // 如果两个值都已经被 JS 填充了
+      if (currentVisitor && currentUa) {
+          visitorId = currentVisitor;
+          ua = currentUa;
+
+          // 更新 UI 显示
+          const visDisplay = document.getElementById("display-visitorId");
+          const uaDisplay = document.getElementById("display-ua");
+          
+          visDisplay.textContent = visitorId;
+          visDisplay.classList.remove("loading-text");
+          
+          uaDisplay.textContent = ua;
+          uaDisplay.classList.remove("loading-text");
+
+          // 数据获取成功，停止轮询
+          clearInterval(checkDataInterval);
+      } else {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+              // 超时处理
+              clearInterval(checkDataInterval);
+              document.getElementById("display-visitorId").textContent = "获取超时，未找到";
+              document.getElementById("display-ua").textContent = "获取超时，未找到";
+              document.getElementById("display-visitorId").classList.remove("loading-text");
+              document.getElementById("display-ua").classList.remove("loading-text");
+          }
+      }
+  }, 250); // 每 250 毫秒检查一次
+
 })();
