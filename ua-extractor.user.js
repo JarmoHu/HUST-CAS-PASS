@@ -141,12 +141,12 @@
   const copyBtn = document.getElementById("ua-box-copy-btn");
   copyBtn.addEventListener("click", () => {
     if (visitorId === "正在获取..." || ua === "正在获取...") {
-        alert("数据尚未获取完毕，请稍后再试！");
-        return;
+      alert("数据尚未获取完毕，请稍后再试！");
+      return;
     }
 
     // 构建你需要的指定格式
-    const formatText = `UaVisitorIdPair(ua="${ua}",visitor="${visitorId}")`;
+    const formatText = `UaVisitorIdPair(ua='${ua}',visitor="${visitorId}")`;
 
     GM_setClipboard(formatText);
 
@@ -163,43 +163,45 @@
   // 6. 动态监测逻辑 (轮询)
   let retryCount = 0;
   const maxRetries = 40; // 最多尝试 40 次 (40 * 250ms = 10秒)
-  
+
   const checkDataInterval = setInterval(() => {
-      // 改用 DOM 直接获取 value，比正则更准确地获取 JS 动态赋的值
-      const visitorInput = document.getElementById("visitorId");
-      const uaInput = document.getElementById("ua");
+    // 改用 DOM 直接获取 value，比正则更准确地获取 JS 动态赋的值
+    const visitorInput = document.getElementById("visitorId");
+    const uaInput = document.getElementById("ua");
 
-      const currentVisitor = visitorInput ? visitorInput.value : "";
-      const currentUa = uaInput ? uaInput.value : "";
+    const currentVisitor = visitorInput ? visitorInput.value : "";
+    const currentUa = uaInput ? uaInput.value : "";
 
-      // 如果两个值都已经被 JS 填充了
-      if (currentVisitor && currentUa) {
-          visitorId = currentVisitor;
-          ua = currentUa;
+    // 如果两个值都已经被 JS 填充了
+    if (currentVisitor && currentUa) {
+      visitorId = currentVisitor;
+      ua = currentUa;
 
-          // 更新 UI 显示
-          const visDisplay = document.getElementById("display-visitorId");
-          const uaDisplay = document.getElementById("display-ua");
-          
-          visDisplay.textContent = visitorId;
-          visDisplay.classList.remove("loading-text");
-          
-          uaDisplay.textContent = ua;
-          uaDisplay.classList.remove("loading-text");
+      // 更新 UI 显示
+      const visDisplay = document.getElementById("display-visitorId");
+      const uaDisplay = document.getElementById("display-ua");
 
-          // 数据获取成功，停止轮询
-          clearInterval(checkDataInterval);
-      } else {
-          retryCount++;
-          if (retryCount >= maxRetries) {
-              // 超时处理
-              clearInterval(checkDataInterval);
-              document.getElementById("display-visitorId").textContent = "获取超时，未找到";
-              document.getElementById("display-ua").textContent = "获取超时，未找到";
-              document.getElementById("display-visitorId").classList.remove("loading-text");
-              document.getElementById("display-ua").classList.remove("loading-text");
-          }
+      visDisplay.textContent = visitorId;
+      visDisplay.classList.remove("loading-text");
+
+      uaDisplay.textContent = ua;
+      uaDisplay.classList.remove("loading-text");
+
+      // 数据获取成功，停止轮询
+      clearInterval(checkDataInterval);
+    } else {
+      retryCount++;
+      if (retryCount >= maxRetries) {
+        // 超时处理
+        clearInterval(checkDataInterval);
+        document.getElementById("display-visitorId").textContent =
+          "获取超时，未找到";
+        document.getElementById("display-ua").textContent = "获取超时，未找到";
+        document
+          .getElementById("display-visitorId")
+          .classList.remove("loading-text");
+        document.getElementById("display-ua").classList.remove("loading-text");
       }
+    }
   }, 250); // 每 250 毫秒检查一次
-
 })();
